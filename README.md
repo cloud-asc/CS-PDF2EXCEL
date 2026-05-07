@@ -85,4 +85,4 @@ MIT
 
 ## Author
 
-Created with <3 by [@nickvourd](https://github.com/nickvourd)
+Created with <3 by [@nickvourd](https://x.com/nickvourd)
