@@ -201,6 +201,16 @@ def parse_sessions(lines: list[str]) -> list[Session]:
     return sessions
 
 
+def filter_sessions(sessions: list[Session], exclude: Iterable[str]) -> list[Session]:
+    excluded = {h.strip().lower() for h in exclude if h and h.strip()}
+    if not excluded:
+        return sessions
+    kept = [s for s in sessions if s.hostname.lower() not in excluded]
+    for new_id, session in enumerate(kept, start=1):
+        session.session_id = new_id
+    return kept
+
+
 HEADER_FONT = Font(name="Arial", bold=True, color="FFFFFF")
 HEADER_FILL = PatternFill("solid", start_color="305496")
 BODY_FONT = Font(name="Arial")
@@ -301,6 +311,17 @@ def main() -> int:
         nargs="?",
         help="Output Excel path (defaults to <pdf>.xlsx next to the input)",
     )
+    ap.add_argument(
+        "-e",
+        "--exclude",
+        action="append",
+        default=[],
+        metavar="HOSTNAME",
+        help=(
+            "Hostname to exclude from the output (case-insensitive, e.g. WIN11-MDE). "
+            "Repeat the flag to exclude multiple hosts."
+        ),
+    )
     args = ap.parse_args()
 
     print(BANNER)
@@ -312,18 +333,31 @@ def main() -> int:
     out = args.xlsx or args.pdf.with_suffix(".xlsx")
     lines = extract_text_lines(args.pdf)
     sessions = parse_sessions(lines)
+
+    excluded_count = 0
+    if args.exclude:
+        before = len(sessions)
+        sessions = filter_sessions(sessions, args.exclude)
+        excluded_count = before - len(sessions)
+
     write_excel(sessions, out)
 
     total_acts = sum(len(s.activities) for s in sessions)
     total_hashes = sum(len(s.file_hashes) for s in sessions)
     total_comms = sum(len(s.comm_paths) for s in sessions)
-    print(
+    summary = (
         f"Wrote {out}\n"
         f"  Sessions:            {len(sessions)}\n"
         f"  Communication paths: {total_comms}\n"
         f"  File hashes:         {total_hashes}\n"
         f"  Activities:          {total_acts}"
     )
+    if args.exclude:
+        summary += (
+            f"\n  Excluded hosts:      {', '.join(args.exclude)} "
+            f"({excluded_count} session(s) dropped)"
+        )
+    print(summary)
     return 0
 
 
